@@ -116,13 +116,5 @@ def prepare_test_set():
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
         test_data.append(x.translate(translator))
-
     print("Finish prepair test set")
-    print(test_data[151])
-    print(test_data[152])
-    print(test_data[153])
-    with open("out.csv", "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        for test_dt in test_data:
-            writer.writerows([test_dt])
     return test_data
