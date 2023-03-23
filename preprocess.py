@@ -1,9 +1,11 @@
 import polars as pl
 from os import listdir
 from os.path import isfile, join
-import glob as gl
-import csv
 import string
+import emoji
+import csv
+import re
+
 """
     Read dataset from csv file and drop topic column
 """
@@ -54,7 +56,9 @@ def prepare_train_set():
     Create a translate table to remove punctuation and invalid characteres (convert to empty string)
     """
     for x in raw_train_data:
-        x.lower()
+        x = re.sub(r'\bcolon\w+\b', '', x)
+        x = re.sub(r'\s+', ' ', x)
+        x = x.lower()
         train_data.append(x.translate(translator))
     print("Finish prepair train set")
     return train_data
@@ -80,7 +84,9 @@ def prepare_val_set():
         Create a translate table to remove punctuation and invalid characteres (convert to empty string)
     """
     for x in raw_val_data:
-        x.lower()
+        x = re.sub(r'\bcolon\w+\b', '', x)
+        x = re.sub(r'\s+', ' ', x)
+        x = x.lower()
         val_data.append(x.translate(translator))
     print("Finish prepair val set")
     return val_data
@@ -106,7 +112,17 @@ def prepare_test_set():
         Create a translate table to remove punctuation and invalid characteres (convert to empty string)
     """
     for x in raw_test_data:
-        x.lower()
+        x = re.sub(r'\bcolon\w+\b', '', x)
+        x = re.sub(r'\s+', ' ', x)
+        x = x.lower()
         test_data.append(x.translate(translator))
+
     print("Finish prepair test set")
+    print(test_data[151])
+    print(test_data[152])
+    print(test_data[153])
+    with open("out.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        for test_dt in test_data:
+            writer.writerows([test_dt])
     return test_data
