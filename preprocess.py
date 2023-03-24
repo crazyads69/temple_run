@@ -1,10 +1,35 @@
 import polars as pl
 from os import listdir
+from pyvi import ViTokenizer
 from os.path import isfile, join
 import string
 import emoji
 import csv
 import re
+
+"""
+    Create a function that remove non-Vietnamese word in sentences of dataset
+"""
+
+
+def remove_non_vietnamese_word(text):
+    """
+        Split sentence to word (aka token)
+    """
+    tokens = []
+    tokens = ViTokenizer.tokenize(text)
+    # Define a list of Vietnamese characters
+    vietnamese_chars = 'aăâbcdđeêghiklmnoôơpqrstuưvxy'
+
+    # Remove non-Vietnamese words from the list of tokens
+    vietnamese_tokens = [token for token in tokens if all(
+        char in vietnamese_chars for char in token)]
+
+    # Join the Vietnamese tokens back into a string
+    vietnamese_text = ' '.join(vietnamese_tokens)
+
+    return vietnamese_text
+
 
 """
     Read dataset from csv file and drop topic column
@@ -59,6 +84,7 @@ def prepare_train_set():
         x = re.sub(r'\bcolon\w+\b', '', x)
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
+        x = remove_non_vietnamese_word(x)
         train_data.append(x.translate(translator))
     print("Finish prepair train set")
     return train_data
@@ -87,6 +113,7 @@ def prepare_val_set():
         x = re.sub(r'\bcolon\w+\b', '', x)
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
+        x = remove_non_vietnamese_word(x)
         val_data.append(x.translate(translator))
     print("Finish prepair val set")
     return val_data
@@ -115,6 +142,8 @@ def prepare_test_set():
         x = re.sub(r'\bcolon\w+\b', '', x)
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
+        x = remove_non_vietnamese_word(x)
         test_data.append(x.translate(translator))
+    print(test_data)
     print("Finish prepair test set")
     return test_data

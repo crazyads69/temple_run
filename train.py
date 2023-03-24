@@ -1,5 +1,8 @@
 from preprocess import *
 
+"""
+    Prepare train, validation, test dataset
+"""
 clean_csv()
 train_data = prepare_train_set()
 train_label = prepare_train_label()
