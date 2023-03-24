@@ -2,8 +2,6 @@ import polars as pl
 from os import listdir
 from os.path import isfile, join
 import string
-import emoji
-import csv
 import re
 
 
