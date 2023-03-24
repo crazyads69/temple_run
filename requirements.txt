@@ -1,2 +1,4 @@
-emoji<=2.2.0
-polars<=0.16.14
+polars<=0.16.15
+pytorch_lightning<=2.0.0
+torch<=2.0.0
+transformers<=4.27.3

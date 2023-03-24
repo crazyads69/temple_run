@@ -21,7 +21,7 @@ tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-large")
 class SentenceDataset(Dataset):
     def __init__(self, sentences, labels, tokenizer):
         self.sentences = sentences
-        self.labels = labels / max(labels)
+        self.labels = labels
         self.tokenizer = tokenizer
 
     def __len__(self):
@@ -57,52 +57,6 @@ val_dataloader = DataLoader(
 test_dataloader = DataLoader(
     test_dataset, batch_size=32, shuffle=False)
 
-"""
-class BiLSTMModel(pl.LightningModule):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, num_layers, dropout_prob):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.bilstm = nn.LSTM(embedding_dim, hidden_dim,
-                              num_layers=num_layers, batch_first=True, bidirectional=True)
-        self.dropout = nn.Dropout(dropout_prob)
-        self.fc = nn.Linear(hidden_dim * 2, 1)
-
-    def forward(self, input_ids, attention_mask):
-        embedded = self.embedding(input_ids)
-        embedded = self.dropout(embedded)
-        outputs, _ = self.bilstm(embedded)
-        outputs = self.dropout(outputs)
-        logits = self.fc(outputs[:, -1])
-        return logits.squeeze()
-
-    def training_step(self, batch, batch_idx):
-        input_ids = batch['input_ids']
-        attention_mask = batch['attention_mask']
-        labels = batch['label']
-        logits = self(input_ids, attention_mask)
-        loss = F.binary_cross_entropy_with_logits(logits, labels)
-        self.log('train_loss', loss, prog_bar=True)
-        # Clip the gradients
-        self.manual_backward(loss)
-        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
-        self.optimizers().step()
-        self.optimizers().zero_grad()
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        input_ids = batch['input_ids']
-        attention_mask = batch['attention_mask']
-        labels = batch['label']
-        logits = self(input_ids, attention_mask)
-        loss = F.binary_cross_entropy_with_logits(logits, labels)
-        self.log('val_loss', loss, prog_bar=True)
-        return loss
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
-"""
-
 
 class BiLSTMModel(pl.LightningModule):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, num_layers, dropout_prob):
@@ -112,7 +66,9 @@ class BiLSTMModel(pl.LightningModule):
                               num_layers=num_layers, batch_first=True, bidirectional=True)
         self.dropout = nn.Dropout(dropout_prob)
         self.attention = nn.Linear(hidden_dim * 2, 1)
-        self.fc = nn.Linear(hidden_dim * 2, 1)
+        self.fc1 = nn.Linear(hidden_dim * 2, hidden_dim)
+
+        self.fc2 = nn.Linear(hidden_dim, 1)
 
     def forward(self, input_ids, attention_mask):
         embedded = self.embedding(input_ids)
@@ -121,7 +77,8 @@ class BiLSTMModel(pl.LightningModule):
         outputs = self.dropout(outputs)
         attention_weights = F.softmax(self.attention(outputs), dim=1)
         weighted_outputs = torch.sum(outputs * attention_weights, dim=1)
-        logits = self.fc(weighted_outputs)
+        dense_outputs = F.relu(self.fc1(weighted_outputs))
+        logits = self.fc2(dense_outputs)
         return logits.squeeze()
 
     def training_step(self, batch, batch_idx):
@@ -129,26 +86,32 @@ class BiLSTMModel(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['label']
         logits = self(input_ids, attention_mask)
+        preds = torch.round(torch.sigmoid(logits))
         loss = F.binary_cross_entropy_with_logits(logits, labels)
-        self.log('train_loss', loss, prog_bar=True)
-        self.manual_backward(loss)
-        torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
-        self.optimizers().step()
-        self.optimizers().zero_grad()
-        return loss
+        acc = (preds == labels).float().mean()
+        self.log('train_loss', loss, prog_bar=True,
+                 on_step=True, on_epoch=True)
+        self.log('train_acc', acc, prog_bar=True, on_step=True, on_epoch=True)
+        return {'loss': loss, 'acc': acc}
 
     def validation_step(self, batch, batch_idx):
         input_ids = batch['input_ids']
         attention_mask = batch['attention_mask']
         labels = batch['label']
         logits = self(input_ids, attention_mask)
-        loss = F.binary_cross_entropy_with_logits(logits, labels)
-        self.log('val_loss', loss, prog_bar=True)
-        return loss
+        preds = torch.round(torch.sigmoid(logits))
+        acc = (preds == labels).float().mean()
+        loss = F.binary_cross_entropy_with_logits(
+            logits, labels)
+        self.log('val_loss', loss, prog_bar=True, on_step=True, on_epoch=True)
+        self.log('val_acc', acc, prog_bar=True, on_step=True, on_epoch=True)
+        return {'loss': loss, 'acc': acc}
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', factor=0.5, patience=1)
+        return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}
 
 
 vocab_size = tokenizer.vocab_size
@@ -159,7 +122,8 @@ dropout_prob = 0.2
 model = BiLSTMModel(vocab_size, embedding_dim,
                     hidden_dim, num_layers, dropout_prob)
 
-trainer = pl.Trainer(max_epochs=20, reload_dataloaders_every_n_epochs=1)
+trainer = pl.Trainer(max_epochs=20, reload_dataloaders_every_n_epochs=1,
+                     enable_checkpointing=1, enable_progress_bar=1, detect_anomaly=True)
 trainer.fit(model, train_dataset, val_dataset)
 trainer.save_checkpoint('checkpoint.ckpt')
 trainer.test(model, test_dataset)
