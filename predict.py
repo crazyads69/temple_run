@@ -45,7 +45,6 @@ class BiLSTMModel(pl.LightningModule):
 
     def forward(self, input_ids, attention_mask):
         embedded = self.embedding(input_ids)
-
         embedded = self.dropout(embedded)
         outputs, _ = self.bilstm(embedded)
         outputs = self.dropout(outputs)
@@ -76,7 +75,10 @@ class BiLSTMModel(pl.LightningModule):
         for output in self.training_step_outputs:
             if 'label' in output:
                 y_true.append(output['label'].item())
-            y_pred.append(torch.sigmoid(output['logits']).round().item())
+            if 'logits' in output:
+                y_pred.append(
+                    float(torch.sigmoid(output['logits']).item() >= 0.5))
+
         acc = accuracy_score(y_true, y_pred)
         self.log('train_acc', acc, prog_bar=True, on_epoch=True)
         self.training_step_outputs.clear()
@@ -102,7 +104,9 @@ class BiLSTMModel(pl.LightningModule):
         for output in self.validation_step_outputs:
             if 'label' in output:
                 y_true.append(output['label'].item())
-            y_pred.append(torch.sigmoid(output['logits']).round().item())
+            if 'logits' in output:
+                y_pred.append(
+                    float(torch.sigmoid(output['logits']).item() >= 0.5))
         acc = accuracy_score(y_true, y_pred)
         self.log('val_acc', acc, prog_bar=True, on_epoch=True)
         self.validation_step_outputs.clear()
@@ -128,7 +132,9 @@ class BiLSTMModel(pl.LightningModule):
         for output in self.test_step_outputs:
             if 'label' in output:
                 y_true.append(output['label'].item())
-            y_pred.append(torch.sigmoid(output['logits']).round().item())
+            if 'logits' in output:
+                y_pred.append(
+                    float(torch.sigmoid(output['logits']).item() >= 0.5))
         acc = accuracy_score(y_true, y_pred)
         self.log('test_acc', acc, prog_bar=True, on_epoch=True)
         self.test_step_outputs.clear()

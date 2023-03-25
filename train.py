@@ -6,9 +6,12 @@ from torch.utils.data import DataLoader, Dataset
 import pytorch_lightning as pl
 from transformers import AutoTokenizer
 import torch.nn.functional as F
+import re
+import string
 """
     Prepare train, validation, test dataset
 """
+translator = str.maketrans("", "", string.punctuation)
 clean_csv()
 train_data = prepare_train_set()
 train_label = prepare_train_label()
@@ -17,6 +20,16 @@ val_label = prepare_val_label()
 test_data = prepare_test_set()
 test_label = prepare_test_label()
 tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-large")
+
+
+def clean_text(text):
+    text = re.sub(r'\bcolon\w+\b', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.lower()
+    text = re.sub(r'\bwzjwz\w+\b', '', text)
+    text = text.translate(translator)
+    return text
+
 
 """
     Create Dataset class for train, validation, test
@@ -121,7 +134,7 @@ class BiLSTMModel(pl.LightningModule):
                 y_true.append(output['label'].item())
             if 'logits' in output:
                 y_pred.append(
-                    (torch.sigmoid(output['logits']).item() >= 0.5).float())
+                    float(torch.sigmoid(output['logits']).item() >= 0.5))
 
         acc = accuracy_score(y_true, y_pred)
         self.log('train_acc', acc, prog_bar=True, on_epoch=True)
@@ -150,7 +163,7 @@ class BiLSTMModel(pl.LightningModule):
                 y_true.append(output['label'].item())
             if 'logits' in output:
                 y_pred.append(
-                    (torch.sigmoid(output['logits']).item() >= 0.5).float())
+                    float(torch.sigmoid(output['logits']).item() >= 0.5))
         acc = accuracy_score(y_true, y_pred)
         self.log('val_acc', acc, prog_bar=True, on_epoch=True)
         self.validation_step_outputs.clear()
@@ -178,7 +191,7 @@ class BiLSTMModel(pl.LightningModule):
                 y_true.append(output['label'].item())
             if 'logits' in output:
                 y_pred.append(
-                    (torch.sigmoid(output['logits']).item() >= 0.5).float())
+                    float(torch.sigmoid(output['logits']).item() >= 0.5))
         acc = accuracy_score(y_true, y_pred)
         self.log('test_acc', acc, prog_bar=True, on_epoch=True)
         self.test_step_outputs.clear()
@@ -188,6 +201,32 @@ class BiLSTMModel(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, mode='min', factor=0.5, patience=1)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}
+
+    def predict(self, sentence):
+        # Tokenize the input sentence
+        sentence = clean_text(sentence)
+        print(sentence)
+        input_ids = tokenizer.encode(
+            sentence, add_special_tokens=True, max_length=128, truncation=True, padding='max_length', return_tensors='pt')
+        attention_mask = tokenizer.encode_plus(sentence,
+                                               add_special_tokens=True,
+                                               max_length=128,
+                                               padding='max_length',
+                                               truncation=True,
+                                               return_attention_mask=True,
+                                               return_tensors='pt')
+        # Pass the input sequence through the model to get the predicted logits
+        logits = self(input_ids, attention_mask)
+        # Apply a sigmoid function to the logits to get the predicted probabilities
+        probs = torch.sigmoid(logits)
+        # Round the probabilities to get the predicted labels
+        avg = probs.mean().item()
+        print(avg)
+        # Return the predicted label (0 for negative, 1 for positive)
+        if avg >= 0.5:
+            return 1
+        else:
+            return 0
 
 
 """
