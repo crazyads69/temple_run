@@ -170,6 +170,27 @@ class BiLSTMModel(pl.LightningModule):
             optimizer, mode='min', factor=0.5, patience=1)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}
 
+    def predict(self, sentence):
+        # Tokenize the input sentence
+        sentence = clean_text(sentence)
+        input_ids = tokenizer.encode(
+            sentence, truncation=True, padding=True, return_tensors='pt')
+
+        # Pass the input sequence through the model to get the predicted logits
+        logits = self(input_ids)
+
+        # Apply a sigmoid function to the logits to get the predicted probabilities
+        probs = torch.sigmoid(logits)
+
+        # Round the probabilities to get the predicted labels
+        labels = torch.round(probs)
+
+        # Convert the predicted labels to a Python list or NumPy array
+        labels = labels.tolist()
+
+        # Return the predicted label (0 for negative, 1 for positive)
+        return labels[0]
+
 
 vocab_size = tokenizer.vocab_size
 embedding_dim = 128
@@ -179,8 +200,14 @@ dropout_prob = 0.2
 model = BiLSTMModel(vocab_size, embedding_dim,
                     hidden_dim, num_layers, dropout_prob)
 
-trainer = pl.Trainer(max_epochs=50, reload_dataloaders_every_n_epochs=1,
+trainer = pl.Trainer(max_epochs=20, reload_dataloaders_every_n_epochs=1,
                      enable_checkpointing=1, enable_progress_bar=1, detect_anomaly=True)
 trainer.fit(model, train_dataset, val_dataset)
 trainer.save_checkpoint('checkpoint.ckpt')
 trainer.test(model, 'checkpoint.ckpt', test_dataset)
+
+
+model.load_from_checkpoint('checkpoint.ckpt')
+sentence = "Cô dạy chán, không tạo hứng thú cho sinh viên."
+label = model.predict(sentence)
+print(label)  # Output: 1

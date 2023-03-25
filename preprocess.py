@@ -120,3 +120,12 @@ def prepare_test_set():
         test_data.append(x.translate(translator))
     print("Finish prepair test set")
     return test_data
+
+
+def clean_text(text):
+    text = re.sub(r'\bcolon\w+\b', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.lower()
+    text = text.sub(r'\bwzjwz\w+\b', '', text)
+    text = text.translate(translator)
+    return text
