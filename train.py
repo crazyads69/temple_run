@@ -52,11 +52,11 @@ val_dataset = SentenceDataset(val_data, val_label, tokenizer)
 test_dataset = SentenceDataset(test_data, test_label, tokenizer)
 
 train_dataloader = DataLoader(
-    train_dataset, batch_size=64, shuffle=True)
+    train_dataset, batch_size=32, shuffle=True)
 val_dataloader = DataLoader(
-    val_dataset, batch_size=64, shuffle=False)
+    val_dataset, batch_size=32, shuffle=False)
 test_dataloader = DataLoader(
-    test_dataset, batch_size=64, shuffle=False)
+    test_dataset, batch_size=32, shuffle=False)
 
 
 class BiLSTMModel(pl.LightningModule):
@@ -66,22 +66,24 @@ class BiLSTMModel(pl.LightningModule):
         self.bilstm = nn.LSTM(embedding_dim, hidden_dim,
                               num_layers=num_layers, batch_first=True, bidirectional=True)
         self.dropout = nn.Dropout(dropout_prob)
+        self.attention = nn.Linear(hidden_dim * 2, 1)
         self.fc1 = nn.Linear(hidden_dim * 2, hidden_dim)
-        self.attention = nn.Linear(hidden_dim, 1)
         self.fc2 = nn.Linear(hidden_dim, 1)
         self.training_step_outputs = []
         self.validation_step_outputs = []
         self.test_step_outputs = []
+        self.loss_fn = nn.BCEWithLogitsLoss()
 
     def forward(self, input_ids, attention_mask):
         embedded = self.embedding(input_ids)
+
         embedded = self.dropout(embedded)
         outputs, _ = self.bilstm(embedded)
         outputs = self.dropout(outputs)
-        dense_outputs = F.relu(self.fc1(outputs))
-        attention_weights = F.softmax(self.attention(dense_outputs), dim=1)
+        attention_weights = F.softmax(self.attention(outputs), dim=1)
         weighted_outputs = torch.sum(outputs * attention_weights, dim=1)
-        logits = self.fc2(weighted_outputs)
+        dense_outputs = F.relu(self.fc1(weighted_outputs))
+        logits = self.fc2(dense_outputs)
         return logits.squeeze()
 
     def training_step(self, batch, batch_idx):
@@ -89,7 +91,7 @@ class BiLSTMModel(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['label']
         logits = self(input_ids, attention_mask)
-        loss = F.binary_cross_entropy_with_logits(logits, labels)
+        loss = self.loss_fn(logits, labels)
         self.log('train_loss', loss, prog_bar=True,
                  on_step=True, on_epoch=True)
         self.training_step_outputs.append(
@@ -115,7 +117,7 @@ class BiLSTMModel(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['label']
         logits = self(input_ids, attention_mask)
-        loss = F.binary_cross_entropy_with_logits(
+        loss = self.loss_fn(
             logits, labels)
         self.log('val_loss', loss, prog_bar=True, on_step=True, on_epoch=True)
         self.validation_step_outputs.append(
@@ -141,7 +143,7 @@ class BiLSTMModel(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['label']
         logits = self(input_ids, attention_mask)
-        loss = F.binary_cross_entropy_with_logits(
+        loss = self.loss_fn(
             logits, labels)
         self.log('test_loss', loss, prog_bar=True, on_step=True, on_epoch=True)
         self.test_step_outputs.append(
@@ -170,9 +172,9 @@ class BiLSTMModel(pl.LightningModule):
 
 
 vocab_size = tokenizer.vocab_size
-embedding_dim = 256
-hidden_dim = 128
-num_layers = 4
+embedding_dim = 128
+hidden_dim = 64
+num_layers = 6
 dropout_prob = 0.2
 model = BiLSTMModel(vocab_size, embedding_dim,
                     hidden_dim, num_layers, dropout_prob)
