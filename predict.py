@@ -157,10 +157,13 @@ class BiLSTMModel(pl.LightningModule):
         # Apply a sigmoid function to the logits to get the predicted probabilities
         probs = torch.sigmoid(logits)
         # Round the probabilities to get the predicted labels
-        print(probs.squeeze().item())
-        probs = (probs >= 0.5).long().squeeze()
+        avg = probs.mean().item()
+        print(avg)
         # Return the predicted label (0 for negative, 1 for positive)
-        return probs.item()
+        if avg >= 0.5:
+            return 1
+        else:
+            return 0
 
 
 """

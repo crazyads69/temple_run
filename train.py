@@ -121,7 +121,7 @@ class BiLSTMModel(pl.LightningModule):
                 y_true.append(output['label'].item())
             if 'logits' in output:
                 y_pred.append(
-                    (torch.sigmoid(output['logits']) >= 0.5).long().squeeze().item()*1.0)
+                    (torch.sigmoid(output['logits']).item() >= 0.5).float())
 
         acc = accuracy_score(y_true, y_pred)
         self.log('train_acc', acc, prog_bar=True, on_epoch=True)
@@ -150,7 +150,7 @@ class BiLSTMModel(pl.LightningModule):
                 y_true.append(output['label'].item())
             if 'logits' in output:
                 y_pred.append(
-                    (torch.sigmoid(output['logits']) >= 0.5).long().squeeze().item()*1.0)
+                    (torch.sigmoid(output['logits']).item() >= 0.5).float())
         acc = accuracy_score(y_true, y_pred)
         self.log('val_acc', acc, prog_bar=True, on_epoch=True)
         self.validation_step_outputs.clear()
@@ -178,7 +178,7 @@ class BiLSTMModel(pl.LightningModule):
                 y_true.append(output['label'].item())
             if 'logits' in output:
                 y_pred.append(
-                    (torch.sigmoid(output['logits']) >= 0.5).long().squeeze().item()*1.0)
+                    (torch.sigmoid(output['logits']).item() >= 0.5).float())
         acc = accuracy_score(y_true, y_pred)
         self.log('test_acc', acc, prog_bar=True, on_epoch=True)
         self.test_step_outputs.clear()
