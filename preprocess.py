@@ -122,10 +122,3 @@ def prepare_test_set():
     return test_data
 
 
-def clean_text(text):
-    text = re.sub(r'\bcolon\w+\b', '', text)
-    text = re.sub(r'\s+', ' ', text)
-    text = text.lower()
-    text = text.sub(r'\bwzjwz\w+\b', '', text)
-    text = text.translate(translator)
-    return text

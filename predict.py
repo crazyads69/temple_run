@@ -1,75 +1,31 @@
 from sklearn.metrics import accuracy_score
 import torch.nn as nn
-from preprocess import *
 import torch
-from torch.utils.data import DataLoader, Dataset
 import pytorch_lightning as pl
 from transformers import AutoTokenizer
 import torch.nn.functional as F
-"""
-    Prepare train, validation, test dataset
-"""
-clean_csv()
-train_data = prepare_train_set()
-train_label = prepare_train_label()
-val_data = prepare_val_set()
-val_label = prepare_val_label()
-test_data = prepare_test_set()
-test_label = prepare_test_label()
+from transformers import AutoTokenizer
+import re
+import string
+
+translator = str.maketrans("", "", string.punctuation)
+
+
+def clean_text(text):
+    text = re.sub(r'\bcolon\w+\b', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = text.lower()
+    text = re.sub(r'\bwzjwz\w+\b', '', text)
+    text = text.translate(translator)
+    return text
+
+
 tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-large")
-
-"""
-    Create Dataset class for train, validation, test
-"""
-
-
-class SentenceDataset(Dataset):
-    def __init__(self, sentences, labels, tokenizer):
-        self.sentences = sentences
-        self.labels = labels
-        self.tokenizer = tokenizer
-
-    def __len__(self):
-        return len(self.sentences)
-
-    def __getitem__(self, idx):
-        sentence = self.sentences[idx]
-        label = self.labels[idx]
-        encoding = self.tokenizer.encode_plus(
-            sentence,
-            add_special_tokens=True,
-            max_length=128,
-            padding='max_length',
-            truncation=True,
-            return_attention_mask=True,
-            return_tensors='pt'
-        )
-
-        return {
-            'input_ids': encoding['input_ids'].flatten(),
-            'attention_mask': encoding['attention_mask'].flatten(),
-            'label': torch.tensor(label, dtype=torch.float),
-        }
-
-
-train_dataset = SentenceDataset(train_data, train_label, tokenizer)
-val_dataset = SentenceDataset(val_data, val_label, tokenizer)
-test_dataset = SentenceDataset(test_data, test_label, tokenizer)
-
-"""
-    Create Dataloader to load dataset for train, validation, test
-"""
-
-train_dataloader = DataLoader(
-    train_dataset, batch_size=32, shuffle=True)
-val_dataloader = DataLoader(
-    val_dataset, batch_size=32, shuffle=False)
-test_dataloader = DataLoader(
-    test_dataset, batch_size=32, shuffle=False)
-
-"""
-    Define Bi-LSTM with attention layer and dropout layer
-"""
+vocab_size = tokenizer.vocab_size
+embedding_dim = 128
+hidden_dim = 64
+num_layers = 6
+dropout_prob = 0.2
 
 
 class BiLSTMModel(pl.LightningModule):
@@ -89,6 +45,7 @@ class BiLSTMModel(pl.LightningModule):
 
     def forward(self, input_ids, attention_mask):
         embedded = self.embedding(input_ids)
+
         embedded = self.dropout(embedded)
         outputs, _ = self.bilstm(embedded)
         outputs = self.dropout(outputs)
@@ -119,10 +76,7 @@ class BiLSTMModel(pl.LightningModule):
         for output in self.training_step_outputs:
             if 'label' in output:
                 y_true.append(output['label'].item())
-            if 'logits' in output:
-                y_pred.append(
-                    (torch.sigmoid(output['logits']) >= 0.5).long().squeeze().item()*1.0)
-
+            y_pred.append(torch.sigmoid(output['logits']).round().item())
         acc = accuracy_score(y_true, y_pred)
         self.log('train_acc', acc, prog_bar=True, on_epoch=True)
         self.training_step_outputs.clear()
@@ -148,9 +102,7 @@ class BiLSTMModel(pl.LightningModule):
         for output in self.validation_step_outputs:
             if 'label' in output:
                 y_true.append(output['label'].item())
-            if 'logits' in output:
-                y_pred.append(
-                    (torch.sigmoid(output['logits']) >= 0.5).long().squeeze().item()*1.0)
+            y_pred.append(torch.sigmoid(output['logits']).round().item())
         acc = accuracy_score(y_true, y_pred)
         self.log('val_acc', acc, prog_bar=True, on_epoch=True)
         self.validation_step_outputs.clear()
@@ -176,9 +128,7 @@ class BiLSTMModel(pl.LightningModule):
         for output in self.test_step_outputs:
             if 'label' in output:
                 y_true.append(output['label'].item())
-            if 'logits' in output:
-                y_pred.append(
-                    (torch.sigmoid(output['logits']) >= 0.5).long().squeeze().item()*1.0)
+            y_pred.append(torch.sigmoid(output['logits']).round().item())
         acc = accuracy_score(y_true, y_pred)
         self.log('test_acc', acc, prog_bar=True, on_epoch=True)
         self.test_step_outputs.clear()
@@ -189,27 +139,36 @@ class BiLSTMModel(pl.LightningModule):
             optimizer, mode='min', factor=0.5, patience=1)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler, 'monitor': 'val_loss'}
 
+    def predict(self, sentence):
+        # Tokenize the input sentence
+        sentence = clean_text(sentence)
+        print(sentence)
+        input_ids = tokenizer.encode(
+            sentence, add_special_tokens=True, max_length=128, truncation=True, padding='max_length', return_tensors='pt')
+        attention_mask = tokenizer.encode_plus(sentence,
+                                               add_special_tokens=True,
+                                               max_length=128,
+                                               padding='max_length',
+                                               truncation=True,
+                                               return_attention_mask=True,
+                                               return_tensors='pt')
+        # Pass the input sequence through the model to get the predicted logits
+        logits = self(input_ids, attention_mask)
+        # Apply a sigmoid function to the logits to get the predicted probabilities
+        probs = torch.sigmoid(logits)
+        # Round the probabilities to get the predicted labels
+        print(probs.squeeze().item())
+        probs = (probs >= 0.5).long().squeeze()
+        # Return the predicted label (0 for negative, 1 for positive)
+        return probs.item()
+
 
 """
-    Define hyperparameter
+model = BiLSTMModel(vocab_size=vocab_size,
+                    embedding_dim=embedding_dim, hidden_dim=hidden_dim, num_layers=num_layers, dropout_prob=dropout_prob)
 """
-
-vocab_size = tokenizer.vocab_size
-embedding_dim = 128
-hidden_dim = 64
-num_layers = 4
-dropout_prob = 0.2
-
-"""
-    Start training process with Bi-LSTM with attention layer and dropout layer
-"""
-model = BiLSTMModel(vocab_size, embedding_dim,
-                    hidden_dim, num_layers, dropout_prob)
-trainer = pl.Trainer(max_epochs=50, reload_dataloaders_every_n_epochs=1,
-                     enable_checkpointing=1, enable_progress_bar=1, detect_anomaly=True)
-trainer.fit(model, train_dataset, val_dataset)
-"""
-    Save model parameters
-"""
-trainer.save_checkpoint('checkpoint.ckpt')
-trainer.test(model, test_dataset, 'checkpoint.ckpt')
+model = BiLSTMModel.load_from_checkpoint('checkpoint.ckpt', vocab_size=tokenizer.vocab_size,
+                                         embedding_dim=128, hidden_dim=64, num_layers=4, dropout_prob=0.2)
+sentence = "nhiệt tình giảng dạy , gần gũi với sinh viên ."
+label = model.predict(sentence)
+print(label)
