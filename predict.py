@@ -62,10 +62,6 @@ class BiLSTMModel(pl.LightningModule):
         embedded = self.dropout(embedded)
         outputs, _ = self.bilstm(embedded)
         outputs = self.dropout(outputs)
-        """
-        attention_weights = F.softmax(self.attention(outputs), dim=1)
-        weighted_outputs = torch.sum(outputs * attention_weights, dim=1)
-        """
         attention_logits = self.attention(outputs)
         attention_logits = attention_logits.masked_fill(
             attention_mask.unsqueeze(-1) == 0, -1e9)
@@ -187,7 +183,7 @@ class BiLSTMModel(pl.LightningModule):
         probs = torch.sigmoid(logits)
         # Round the probabilities to get the predicted labels
         avg = probs.mean().item()
-        print(avg)
+        print("Confidence:", avg)
         # Return the predicted label (0 for negative, 1 for positive)
         if avg >= 0.5:
             return 1
