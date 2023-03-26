@@ -2,3 +2,4 @@ polars<=0.16.15
 pytorch_lightning<=2.0.0
 torch<=2.0.0
 transformers<=4.27.3
+demoji <=1.1.0

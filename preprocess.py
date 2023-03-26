@@ -3,6 +3,18 @@ from os import listdir
 from os.path import isfile, join
 import string
 import re
+import demoji
+
+demoji.download_codes()
+stop_words = ['là', 'của', 'làm', 'và', 'có', 'trong', 'được', 'ở', 'như', 'cho', 'này', 'để', 'không', 'được', 'với', 'cũng', 'vì', 'lên', 'nhiều', 'nhưng', 'còn', 'nữa', 'hay', 'đang', 'thì', 'đã', 'sẽ', 'vẫn', 'lại', 'hoặc', 'vậy', 'tại', 'khi', 'nào', 'cùng', 'đến', 'đều', 'thường', 'nên', 'mà', 'ở', 'ra', 'trên', 'theo', 'thấy', 'từ', 'nên', 'phải', 'đấy', 'thế', 'quá', 'thì', 'đó', 'mới', 'chỉ', 'được', 'chưa', 'đầu', 'chỉ', 'thôi', 'hơn', 'thế', 'những', 'nhất', 'đặc', 'biệt', 'thì', 'đúng', 'qua',
+              'rất', 'nên', 'thêm', 'vào', 'khi', 'các', 'mỗi', 'về', 'sau', 'sẽ', 'nếu', 'bị', 'là', 'giữa', 'cả', 'rồi', 'trước', 'muốn', 'cảm', 'ơn', 'thôi', 'nào', 'tới', 'từng', 'rồi', 'ngay', 'người', 'người', 'ta', 'trên', 'trên', 'dưới', 'dưới', 'đến', 'tất', 'cả', 'thực', 'sự', 'tương', 'tự', 'điều', 'gì', 'còn', 'gì', 'lúc', 'nào', 'khác', 'nhau', 'thấp', 'cao', 'trong', 'ngoài', 'nhằm', 'mỗi', 'tùy', 'từng', 'mọi', 'cách', 'từ', 'ngày', 'ngày', 'một', 'tháng', 'tháng', 'năm', 'năm', 'trong', 'ngoài', 'doubledot', 'dot']
+
+
+def remove_stopwords(sentence, stop_words):
+    words = sentence.split()
+    filtered_words = [word for word in words if word.lower() not in stop_words]
+    text = ' '.join(filtered_words)
+    return text
 
 
 """
@@ -59,6 +71,8 @@ def prepare_train_set():
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
         x = re.sub(r'\bwzjwz\w+\b', '', x)
+        x = remove_stopwords(x, stop_words)
+        x = demoji.replace(x, '')
         train_data.append(x.translate(translator))
     print("Finish prepair train set")
     return train_data
@@ -88,6 +102,8 @@ def prepare_val_set():
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
         x = re.sub(r'\bwzjwz\w+\b', '', x)
+        x = remove_stopwords(x, stop_words)
+        x = demoji.replace(x, '')
         val_data.append(x.translate(translator))
     print("Finish prepair val set")
     return val_data
@@ -117,8 +133,8 @@ def prepare_test_set():
         x = re.sub(r'\s+', ' ', x)
         x = x.lower()
         x = re.sub(r'\bwzjwz\w+\b', '', x)
+        x = remove_stopwords(x, stop_words)
+        x = demoji.replace(x, '')
         test_data.append(x.translate(translator))
     print("Finish prepair test set")
     return test_data
-
-
