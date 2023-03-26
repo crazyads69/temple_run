@@ -6,8 +6,8 @@ import re
 import demoji
 
 demoji.download_codes()
-stop_words = ['là', 'của', 'làm', 'và', 'có', 'trong', 'được', 'ở', 'như', 'cho', 'này', 'để', 'không', 'được', 'với', 'cũng', 'vì', 'lên', 'nhiều', 'nhưng', 'còn', 'nữa', 'hay', 'đang', 'thì', 'đã', 'sẽ', 'vẫn', 'lại', 'hoặc', 'vậy', 'tại', 'khi', 'nào', 'cùng', 'đến', 'đều', 'thường', 'nên', 'mà', 'ở', 'ra', 'trên', 'theo', 'thấy', 'từ', 'nên', 'phải', 'đấy', 'thế', 'quá', 'thì', 'đó', 'mới', 'chỉ', 'được', 'chưa', 'đầu', 'chỉ', 'thôi', 'hơn', 'thế', 'những', 'nhất', 'đặc', 'biệt', 'thì', 'đúng', 'qua',
-              'rất', 'nên', 'thêm', 'vào', 'khi', 'các', 'mỗi', 'về', 'sau', 'sẽ', 'nếu', 'bị', 'là', 'giữa', 'cả', 'rồi', 'trước', 'muốn', 'cảm', 'ơn', 'thôi', 'nào', 'tới', 'từng', 'rồi', 'ngay', 'người', 'người', 'ta', 'trên', 'trên', 'dưới', 'dưới', 'đến', 'tất', 'cả', 'thực', 'sự', 'tương', 'tự', 'điều', 'gì', 'còn', 'gì', 'lúc', 'nào', 'khác', 'nhau', 'thấp', 'cao', 'trong', 'ngoài', 'nhằm', 'mỗi', 'tùy', 'từng', 'mọi', 'cách', 'từ', 'ngày', 'ngày', 'một', 'tháng', 'tháng', 'năm', 'năm', 'trong', 'ngoài', 'doubledot', 'dot', 'sub', 'fraction', 'add', 'multiply']
+stop_words = ['doubledot', 'sub', 'dot', 'add', 'fraction', 'multiply',
+              'và', 'là', 'của', 'cho', 'được', 'trong', 'từ', 'nhưng', 'với', 'tại']
 
 
 def remove_stopwords(sentence, stop_words):
