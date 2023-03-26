@@ -25,7 +25,7 @@ test_label = prepare_test_label()
 tokenizer = AutoTokenizer.from_pretrained("vinai/phobert-large")
 
 stop_words = ['là', 'của', 'làm', 'và', 'có', 'trong', 'được', 'ở', 'như', 'cho', 'này', 'để', 'không', 'được', 'với', 'cũng', 'vì', 'lên', 'nhiều', 'nhưng', 'còn', 'nữa', 'hay', 'đang', 'thì', 'đã', 'sẽ', 'vẫn', 'lại', 'hoặc', 'vậy', 'tại', 'khi', 'nào', 'cùng', 'đến', 'đều', 'thường', 'nên', 'mà', 'ở', 'ra', 'trên', 'theo', 'thấy', 'từ', 'nên', 'phải', 'đấy', 'thế', 'quá', 'thì', 'đó', 'mới', 'chỉ', 'được', 'chưa', 'đầu', 'chỉ', 'thôi', 'hơn', 'thế', 'những', 'nhất', 'đặc', 'biệt', 'thì', 'đúng', 'qua',
-              'rất', 'nên', 'thêm', 'vào', 'khi', 'các', 'mỗi', 'về', 'sau', 'sẽ', 'nếu', 'bị', 'là', 'giữa', 'cả', 'rồi', 'trước', 'muốn', 'cảm', 'ơn', 'thôi', 'nào', 'tới', 'từng', 'rồi', 'ngay', 'người', 'người', 'ta', 'trên', 'trên', 'dưới', 'dưới', 'đến', 'tất', 'cả', 'thực', 'sự', 'tương', 'tự', 'điều', 'gì', 'còn', 'gì', 'lúc', 'nào', 'khác', 'nhau', 'thấp', 'cao', 'trong', 'ngoài', 'nhằm', 'mỗi', 'tùy', 'từng', 'mọi', 'cách', 'từ', 'ngày', 'ngày', 'một', 'tháng', 'tháng', 'năm', 'năm', 'trong', 'ngoài','doubledot','dot']
+              'rất', 'nên', 'thêm', 'vào', 'khi', 'các', 'mỗi', 'về', 'sau', 'sẽ', 'nếu', 'bị', 'là', 'giữa', 'cả', 'rồi', 'trước', 'muốn', 'cảm', 'ơn', 'thôi', 'nào', 'tới', 'từng', 'rồi', 'ngay', 'người', 'người', 'ta', 'trên', 'trên', 'dưới', 'dưới', 'đến', 'tất', 'cả', 'thực', 'sự', 'tương', 'tự', 'điều', 'gì', 'còn', 'gì', 'lúc', 'nào', 'khác', 'nhau', 'thấp', 'cao', 'trong', 'ngoài', 'nhằm', 'mỗi', 'tùy', 'từng', 'mọi', 'cách', 'từ', 'ngày', 'ngày', 'một', 'tháng', 'tháng', 'năm', 'năm', 'trong', 'ngoài', 'doubledot', 'sub', 'dot', 'add', 'fraction', 'multiply']
 
 
 def remove_stopwords(sentence, stop_words):
@@ -34,6 +34,7 @@ def remove_stopwords(sentence, stop_words):
     text = ' '.join(filtered_words)
     return text
 
+
 def clean_text(text):
     text = re.sub(r'\bcolon\w+\b', '', text)
     text = re.sub(r'\s+', ' ', text)
@@ -41,6 +42,7 @@ def clean_text(text):
     text = re.sub(r'\bwzjwz\w+\b', '', text)
     text = remove_stopwords(text, stop_words)
     text = demoji.replace(text, '')
+    text = re.sub(r'[^\w\s]', '', text)
     text = text.translate(translator)
     return text
 
@@ -73,8 +75,8 @@ class SentenceDataset(Dataset):
         )
 
         return {
-            'input_ids': encoding['input_ids'].flatten(),
-            'attention_mask': encoding['attention_mask'].flatten(),
+            'input_ids': encoding['input_ids'],
+            'attention_mask': encoding['attention_mask'],
             'label': torch.tensor(label, dtype=torch.float),
         }
 
@@ -227,15 +229,17 @@ class BiLSTMModel(pl.LightningModule):
         # Tokenize the input sentence
         sentence = clean_text(sentence)
         print(sentence)
-        input_ids = tokenizer.encode(
-            sentence, add_special_tokens=True, max_length=128, truncation=True, padding='max_length', return_tensors='pt')
-        attention_mask = tokenizer.encode_plus(sentence,
-                                               add_special_tokens=True,
-                                               max_length=128,
-                                               padding='max_length',
-                                               truncation=True,
-                                               return_attention_mask=True,
-                                               return_tensors='pt')
+        encoded_dict = tokenizer.encode_plus(
+            sentence,
+            add_special_tokens=True,
+            max_length=128,
+            padding='max_length',
+            truncation=True,
+            return_attention_mask=True,
+            return_tensors='pt'
+        )
+        input_ids = encoded_dict['input_ids']
+        attention_mask = encoded_dict['attention_mask']
         # Pass the input sequence through the model to get the predicted logits
         logits = self(input_ids, attention_mask)
         # Apply a sigmoid function to the logits to get the predicted probabilities
